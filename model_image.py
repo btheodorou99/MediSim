@@ -1,15 +1,11 @@
-'''
-    code by Brandon Theodorou
-    Original GPT-2 Paper and repository here: https://github.com/openai/gpt-2
-    Original GPT-2 Pytorch Model: https://github.com/huggingface/pytorch-pretrained-BERT
-    GPT-2 Pytorch Model Derived From: https://github.com/graykode/gpt-2-Pytorch
-'''
 import copy
 import math
 import torch
 from tqdm import tqdm
 import torch.nn as nn
+from functools import partial
 import torch.nn.functional as F
+from einops import rearrange, repeat
 
 def gelu(x):
     return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
@@ -123,71 +119,59 @@ class Block(nn.Module):
         x = x + m
         return x, present
     
-class SelfAttention(nn.Module):
-    def __init__(self, channels, size):
-        super(SelfAttention, self).__init__()
-        self.channels = channels
-        self.size = size
-        self.mha = nn.MultiheadAttention(channels, 4, batch_first=True)
-        self.ln = nn.LayerNorm([channels])
-        self.ff_self = nn.Sequential(
-            nn.LayerNorm([channels]),
-            nn.Linear(channels, channels),
-            nn.GELU(),
-            nn.Linear(channels, channels),
-        )
+class RMSNorm(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.g = nn.Parameter(torch.ones(1, dim, 1, 1))
 
     def forward(self, x):
-        x = x.view(-1, self.channels, self.size * self.size).swapaxes(1, 2)
-        x_ln = self.ln(x)
-        attention_value, _ = self.mha(x_ln, x_ln, x_ln)
-        attention_value = attention_value + x
-        attention_value = self.ff_self(attention_value) + attention_value
-        return attention_value.swapaxes(2, 1).view(-1, self.channels, self.size, self.size)
-
-class DownsampledAttention(nn.Module):
-    def __init__(self, channels, size, downsample_factor=4):
-        super(DownsampledAttention, self).__init__()
-        self.channels = channels
-        self.size = size
-        self.downsample_factor = downsample_factor
-        
-        # Downsampling layer
-        self.downsample = nn.Conv2d(channels, channels, kernel_size=downsample_factor, stride=downsample_factor, padding=0, bias=False)
-        
-        # Self-attention mechanism for downsampled features
-        self.mha = nn.MultiheadAttention(channels, 4, batch_first=True)
-        self.ln = nn.LayerNorm([channels])
-        self.ff_self = nn.Sequential(
-            nn.LayerNorm([channels]),
-            nn.Linear(channels, channels),
-            nn.GELU(),
-            nn.Linear(channels, channels),
-        )
-        
-        # Upsampling layer
-        self.upsample = nn.Upsample(scale_factor=downsample_factor, mode='bilinear', align_corners=True)
-
-    def forward(self, x):
-        # Downsample
-        x_down = self.downsample(x)
-        
-        B, C, H, W = x_down.size()
-        x_down = x_down.view(B, C, H*W).transpose(1, 2)
-        
-        x_ln = self.ln(x_down)
-        attention_value, _ = self.mha(x_ln, x_ln, x_ln)
-        attention_value = attention_value + x_down
-        attention_value = self.ff_self(attention_value) + attention_value
-        attention_value = attention_value.transpose(1, 2).view(B, C, H, W)
-        
-        # Upsample
-        x_up = self.upsample(attention_value)
-        
-        return x_up
-
-
+        return F.normalize(x, dim = 1) * self.g * (x.shape[1] ** 0.5)
     
+class LinearAttention(nn.Module):
+    def __init__(
+        self,
+        dim,
+        heads = 4,
+        dim_head = 32,
+        num_mem_kv = 4
+    ):
+        super().__init__()
+        self.scale = dim_head ** -0.5
+        self.heads = heads
+        hidden_dim = dim_head * heads
+
+        self.norm = RMSNorm(dim)
+
+        self.mem_kv = nn.Parameter(torch.randn(2, heads, dim_head, num_mem_kv))
+        self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias = False)
+
+        self.to_out = nn.Sequential(
+            nn.Conv2d(hidden_dim, dim, 1),
+            RMSNorm(dim)
+        )
+
+    def forward(self, x):
+        b, _, h, w = x.shape
+
+        x = self.norm(x)
+
+        qkv = self.to_qkv(x).chunk(3, dim = 1)
+        q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h = self.heads), qkv)
+
+        mk, mv = map(lambda t: repeat(t, 'h c n -> b h c n', b = b), self.mem_kv)
+        k, v = map(partial(torch.cat, dim = -1), ((mk, k), (mv, v)))
+
+        q = q.softmax(dim = -2)
+        k = k.softmax(dim = -1)
+
+        q = q * self.scale
+
+        context = torch.einsum('b h d n, b h e n -> b h d e', k, v)
+
+        out = torch.einsum('b h d e, b h d n -> b h e n', context, q)
+        out = rearrange(out, 'b h c (x y) -> b (h c) x y', h = self.heads, x = h, y = w)
+        return self.to_out(out)
+
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels, mid_channels=None, residual=False):
         super(DoubleConv, self).__init__()
@@ -264,7 +248,7 @@ class DiffusionModel(nn.Module):
         self.beta = torch.linspace(self.beta_start, self.beta_end, self.num_timesteps)
         self.alpha = 1 - self.beta
         self.alpha_hat = torch.cumprod(self.alpha, dim=0)
-        self.image_dim = config.image_dim
+        self.image_dim = config.image_dim_gen
         self.n_channels = config.n_channels
         self.embed_dim = config.embed_dim
         
@@ -272,21 +256,21 @@ class DiffusionModel(nn.Module):
         self.inc = DoubleConv(config.n_channels, 16)
         
         self.down1 = DownBlock(16, 32, self.embed_dim)
-        self.sa1 = DownsampledAttention(32, 128)
+        self.sa1 = LinearAttention(32)
         self.down2 = DownBlock(32, 64, self.embed_dim)
-        self.sa2 = DownsampledAttention(64, 64)
+        self.sa2 = LinearAttention(64)
         self.down3 = DownBlock(64, 128, self.embed_dim)
-        self.sa3 = SelfAttention(128, 32)
+        self.sa3 = LinearAttention(128)
         
         self.bot1 = DoubleConv(128, 128)
         self.bot2 = DoubleConv(128, 128)
         
         self.up1 = UpBlock(192, 64, self.embed_dim)
-        self.sa4 = SelfAttention(64, 64)
+        self.sa4 = LinearAttention(64)
         self.up2 = UpBlock(96, 32, self.embed_dim)
-        self.sa5 = DownsampledAttention(32, 128)
+        self.sa5 = LinearAttention(32)
         self.up3 = UpBlock(48, 16, self.embed_dim)
-        self.sa6 = DownsampledAttention(16, 256, downsample_factor=8)
+        self.sa6 = LinearAttention(16)
         self.outc = nn.Conv2d(16, config.n_channels, kernel_size=1)
 
     def timestep_embedding(self, t, channels, max_period=100):
@@ -346,7 +330,7 @@ class DiffusionModel(nn.Module):
     def generate(self, context):
         n = context.size(0)
         x = torch.randn(n, self.n_channels, self.image_dim, self.image_dim, device=context.device)
-        for timestep in tqdm(reversed(range(1, self.num_timesteps))):
+        for timestep in tqdm(reversed(range(1, self.num_timesteps)), total=self.num_timesteps-1):
             t = (torch.ones(n) * timestep).long().to(context.device)
             predicted_noise = self._forward(x, t, context)
             alpha = self.alpha[t][:, None, None, None].to(context.device)
