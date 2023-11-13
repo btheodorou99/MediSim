@@ -19,7 +19,7 @@ class MediSimConfig(object):
             initializer_range=0.02,
             
             batch_size=256,
-            batch_size_gen=32,
+            batch_size_gen=64,
             plus_batch_size=64,
             sample_batch_size=256,
             epoch=250,
@@ -27,8 +27,9 @@ class MediSimConfig(object):
             lr=1e-4,
             
             epoch_gen=250,
-            lr_gen=1e-3,
+            lr_gen=1e-4,
             image_dim=256,
+            image_dim_gen=256,
             n_channels=1,
             embed_dim = 128,
             beta_start = 0.0015,
@@ -60,6 +61,7 @@ class MediSimConfig(object):
         self.lr_gen = lr_gen
         self.epoch_gen = epoch_gen
         self.image_dim = image_dim
+        self.image_dim_gen = image_dim_gen
         self.n_channels = n_channels
         self.embed_dim = embed_dim
         self.beta_start = beta_start
