@@ -1,0 +1,2 @@
+('Cardiopulmonary Conditions', 'Edema', 0)
+('Pulmonary Parenchymal Abnormalities', 'Consolidation', 0)

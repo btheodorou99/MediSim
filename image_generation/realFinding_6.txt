@@ -1,0 +1,2 @@
+('Cardiopulmonary Conditions', 'Edema', 1)
+('Cardiopulmonary Conditions', 'Pneumothorax', 1)

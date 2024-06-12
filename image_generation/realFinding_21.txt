@@ -1,0 +1,2 @@
+('Pulmonary Parenchymal Abnormalities', 'Atelectasis', 1)
+('Pulmonary Parenchymal Abnormalities', 'LungOpacity', 1)

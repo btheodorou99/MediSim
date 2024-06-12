@@ -1,0 +1,4 @@
+('Cardiopulmonary Conditions', 'Cardiomegaly', 0)
+('Cardiopulmonary Conditions', 'EnlargedCardiomediastinum', 0)
+('Cardiopulmonary Conditions', 'Pneumonia', 1)
+('Pulmonary Parenchymal Abnormalities', 'Consolidation', 1)

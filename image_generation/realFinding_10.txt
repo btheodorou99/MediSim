@@ -1,0 +1,2 @@
+('Pulmonary Parenchymal Abnormalities', 'Atelectasis', 1)
+('Pleural Conditions', 'PleuralEffusion', 1)

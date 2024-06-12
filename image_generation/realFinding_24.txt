@@ -1,0 +1,2 @@
+('Miscellaneous Findings', 'SupportDevices', 1)
+('Miscellaneous Findings', 'NoFinding', 1)

@@ -1,0 +1,6 @@
+('Cardiopulmonary Conditions', 'Cardiomegaly', 1)
+('Cardiopulmonary Conditions', 'Pneumonia', 1)
+('Cardiopulmonary Conditions', 'Pneumothorax', 0)
+('Pulmonary Parenchymal Abnormalities', 'Atelectasis', 1)
+('Pulmonary Parenchymal Abnormalities', 'LungOpacity', 1)
+('Miscellaneous Findings', 'SupportDevices', 1)

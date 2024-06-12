@@ -1,0 +1,3 @@
+('Pulmonary Parenchymal Abnormalities', 'Consolidation', 1)
+('Pulmonary Parenchymal Abnormalities', 'LungLesion', 1)
+('Pleural Conditions', 'PleuralEffusion', 1)

@@ -1,0 +1,1 @@
+('Pulmonary Parenchymal Abnormalities', 'LungOpacity', 1)

@@ -1,0 +1,4 @@
+('Cardiopulmonary Conditions', 'Cardiomegaly', 1)
+('Cardiopulmonary Conditions', 'Edema', 0)
+('Cardiopulmonary Conditions', 'Pneumonia', 0)
+('Pleural Conditions', 'PleuralEffusion', 0)

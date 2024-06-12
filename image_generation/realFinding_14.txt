@@ -1,0 +1,4 @@
+('Cardiopulmonary Conditions', 'Pneumothorax', 0)
+('Pulmonary Parenchymal Abnormalities', 'LungOpacity', 1)
+('Pleural Conditions', 'PleuralEffusion', 0)
+('Miscellaneous Findings', 'Fracture', 1)

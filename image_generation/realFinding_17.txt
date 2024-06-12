@@ -1,0 +1,4 @@
+('Cardiopulmonary Conditions', 'Cardiomegaly', 0)
+('Pulmonary Parenchymal Abnormalities', 'Atelectasis', 1)
+('Pleural Conditions', 'PleuralEffusion', 1)
+('Miscellaneous Findings', 'SupportDevices', 1)
