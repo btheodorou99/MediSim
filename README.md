@@ -19,3 +19,6 @@ To generate simulated/extended dataset, run any desired files in the `generate_d
 
 ## Evaluate Datasets
 To evaluate the utility of enriched data, run `augmentation_prediction_temporal.py` and `augmentation_prediction_modality.py`. These may take awhile as they loop through all of the compared models.
+
+## License
+MediSim code and model weights are released under the Apache License 2.0. See [LICENSE](LICENSE.txt) for additional details.
